@@ -2,8 +2,9 @@ from loader.pdf_loader import UnstructuredPDFLoader
 import os
 import base64
 from IPython.display import Image, display
-
 from loader.summarizer import Summarizer  
+from dotenv import load_dotenv
+
 
 def display_base64_image(base64_code):
     image_data = base64.b64decode(base64_code)
@@ -32,8 +33,8 @@ def main():
     print(f"Text chunks (Documents): {len(texts)}")
     for i, doc in enumerate(texts[:2]):
         print(f"\n--- Document Chunk {i+1} ---")
-        print(doc.page_content[:300])
-        print(doc.metadata)
+        print(doc.page_content[:500])
+
 
     # Display table summaries
     print(f"\nTables Extracted: {len(tables)}")
@@ -53,22 +54,22 @@ def main():
     print("\nSummarizing text...")
     text_summaries = summarizer.summarize_text(texts)
 
-    print("\nSummarizing tables...")
-    tables_html = [table.metadata.text_as_html for table in tables]
-    table_summaries = summarizer.summarize_tables(tables_html)
+    # print("\nSummarizing tables...")
+    # tables_html = [table.metadata.text_as_html for table in tables]
+
 
     print("\nSummarizing images...")
     image_summaries = summarizer.summarize_images(images_b64)
 
     # Display summaries (optional)
-    for i, summary in enumerate(text_summaries[:2]):
-        print(f"\nText Summary {i+1}:\n{summary}")
+    for i, summary in enumerate(text_summaries):
+        print(f"\nText Summary {i + 1}:\n{summary}\n{'-'*50}")
 
-    for i, summary in enumerate(table_summaries[:1]):
-        print(f"\nTable Summary {i+1}:\n{summary}")
+    # for i, summary in enumerate(table_summaries[:1]):
+    #     print(f"\nTable Summary {i+1}:\n{summary}")
 
-    for i, summary in enumerate(image_summaries[:1]):
-        print(f"\nImage Summary {i+1}:\n{summary}")
+    for i, summary in enumerate(image_summaries):
+        print(f"\nImage Summary {i+1}:\n{summary}\n{'-'*50}")
 
 if __name__ == "__main__":
     main()

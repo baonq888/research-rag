@@ -1,32 +1,87 @@
-from langchain.chat_models import ChatOllama
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-from config.models import (
-    LLM_MODEL,
-    IMAGE_MODEL
-)
-from config.prompts import (
-    SUMMARY_PROMPT
-)
+from dotenv import load_dotenv
+import os
+from together import Together
+from config.models import LLM_MODEL, IMAGE_MODEL
+from config.prompts import (SUMMARY_PROMPT, IMAGE_SUMMARY_PROMPT)
+from helper.response_cleaner import ResponseCleaner
+
+load_dotenv()
+api_key = os.getenv("TOGETHER_API_KEY")
+
+client = Together(api_key=api_key)
+
 
 class Summarizer:
     def __init__(self):
-        self.prompt = ChatPromptTemplate.from_template(SUMMARY_PROMPT)
+        self.model = LLM_MODEL
+        self.image_model = IMAGE_MODEL
+        self.prompt_template = SUMMARY_PROMPT
 
-        self.text_model = ChatOllama(model=LLM_MODEL)
-        self.image_model = ChatOllama(model=IMAGE_MODEL)
-
-        self.text_chain = {"element": lambda x: x} | self.prompt | self.text_model | StrOutputParser()
-        self.image_chain = {"element": lambda x: x} | self.prompt | self.image_model | StrOutputParser()
+    def _format_prompt(self, content):
+        return self.prompt_template.replace("{element}", content)
 
     def summarize_text(self, texts, concurrency=3):
-        return self.text_chain.batch(texts, {"max_concurrency": concurrency})
+        results = []
+
+        for doc in texts:
+            # Safely extract string content
+            text = doc.page_content if hasattr(doc, "page_content") else str(doc)
+            
+
+            prompt = self._format_prompt(text)
+
+
+            response = client.chat.completions.create(
+                model=self.model,
+                messages=[{
+                    "role": "user", 
+                    "content": prompt
+                }],
+                temperature=0.5,
+                max_tokens=4096,
+                stop=None,
+                stream=False
+            )
+            raw_output = response.choices[0].message.content
+
+            # Clean the output
+            cleaned = ResponseCleaner.strip_think_block(raw_output)
+
+            results.append(cleaned)
+
+        return results
 
     def summarize_tables(self, tables_html, concurrency=3):
         return self.summarize_text(tables_html, concurrency)
 
     def summarize_images(self, images_b64, concurrency=2):
-        return self.image_chain.batch(images_b64, {"max_concurrency": concurrency})
+        results = []
+
+        for b64 in images_b64:
+            response = client.chat.completions.create(
+                model=self.image_model,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": IMAGE_SUMMARY_PROMPT},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{b64}"
+                            }
+                        }
+                    ]
+                }],
+                max_tokens=1024,
+                temperature=0.5,
+                stream=False
+            )
+
+            content = response.choices[0].message.content
+            cleaned = ResponseCleaner.strip_think_block(content)
+            results.append(cleaned)
+
+        return results
 
     def summarize_all(self, texts, tables, images_b64):
         return {

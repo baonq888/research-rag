@@ -1,7 +1,7 @@
 # Language models
-LLM_MODEL = "llama3.2:1b"   
+LLM_MODEL = "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free"   
      
-IMAGE_MODEL = "llava:7b-v1.6-mistral-q2_K"
+IMAGE_MODEL = "meta-llama/Llama-Vision-Free"
 
 # Summary settings
 SUMMARY_TEMPERATURE = 0.5
