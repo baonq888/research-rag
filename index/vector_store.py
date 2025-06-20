@@ -1,9 +1,10 @@
 import uuid
-from langchain.vectorstores import Chroma
+from langchain_community.vectorstores import Chroma
 from langchain_community.storage.redis import RedisStore
 from langchain.schema.document import Document
-from langchain.embeddings import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.retrievers.multi_vector import MultiVectorRetriever
+from redis import Redis
 
 from config.models import EMBEDDING_MODEL
 from config.redis import REDIS_URL
@@ -21,7 +22,7 @@ class VectorStoreManager:
         )
 
         # Store orignal contents
-        self.docstore = RedisStore.from_url(REDIS_URL)
+        self.docstore = RedisStore(client=Redis.from_url(REDIS_URL))        
         # Set the key used to link vector entries to full documents
         self.id_key = "doc_id"
 
@@ -36,6 +37,12 @@ class VectorStoreManager:
         """Embed and store summary chunks with parent metadata."""
         doc_id = str(uuid.uuid4())
         metadata = parent_metadata or {}
+
+        # Check if doc_id already exists in Redis
+        redis_client = self.docstore.redis
+        if redis_client.exists(doc_id):
+            print(f"Doc_id already exists in Redis: {doc_id}")
+            return
 
         docs = [
             Document(

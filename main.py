@@ -1,3 +1,4 @@
+import json
 from loader.pdf_loader import UnstructuredPDFLoader
 from loader.summarizer import Summarizer
 from index.vector_store import VectorStoreManager
@@ -66,9 +67,33 @@ def main():
 
     # Store in vector DB and doc store
     retriever.vectorstore.add_documents(summary_texts + summary_tables + summary_images)
-    retriever.docstore.mset(list(zip(text_ids, texts)))
-    retriever.docstore.mset(list(zip(table_ids, tables)))
-    retriever.docstore.mset(list(zip(image_ids, images_b64)))
+
+    def serialize_document(doc: Document):
+        return json.dumps({
+            "page_content": doc.page_content,
+            "metadata": doc.metadata
+        })
+
+    def serialize_table(table):
+        return json.dumps({
+            "page_content": table.page_content if hasattr(table, "page_content") else str(table),
+            "metadata": table.metadata.to_dict() if hasattr(table.metadata, "to_dict") else table.metadata
+        })
+
+    # Store original texts as JSON
+    retriever.docstore.mset([
+        (doc_id, serialize_document(doc)) for doc_id, doc in zip(text_ids, texts)
+    ])
+
+    # Store tables as JSON
+    retriever.docstore.mset([
+        (doc_id, serialize_table(tbl)) for doc_id, tbl in zip(table_ids, tables)
+    ])
+
+    # Store base64 images as raw strings (they're already serializable)
+    retriever.docstore.mset([
+        (doc_id, json.dumps({"image_b64": b64})) for doc_id, b64 in zip(image_ids, images_b64)
+    ])
 
     print(f"\nStored {len(summary_texts)} text, {len(summary_tables)} table, and {len(summary_images)} image summaries.")
 
