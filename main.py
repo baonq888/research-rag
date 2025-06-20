@@ -1,14 +1,18 @@
 from loader.pdf_loader import UnstructuredPDFLoader
-import os
-import base64
+from loader.summarizer import Summarizer
+from index.vector_store import VectorStoreManager
+from langchain.schema import Document
+import base64, os, uuid
 from IPython.display import Image, display
-from loader.summarizer import Summarizer  
 from dotenv import load_dotenv
+
+load_dotenv()
 
 
 def display_base64_image(base64_code):
     image_data = base64.b64decode(base64_code)
     display(Image(data=image_data))
+
 
 def main():
     pdf_path = "./data/attention.pdf"
@@ -18,6 +22,7 @@ def main():
         print(f"File not found: {pdf_path}")
         return
 
+    # Load content
     loader = UnstructuredPDFLoader(
         file_path=pdf_path,
         image_output_dir=image_output_dir,
@@ -26,50 +31,47 @@ def main():
         combine_text_under_n_chars=2000,
         new_after_n_chars=6000,
     )
-
     texts, tables, images_b64 = loader.process_pdf_content()
-
-    # Display document chunks
-    print(f"Text chunks (Documents): {len(texts)}")
-    for i, doc in enumerate(texts[:2]):
-        print(f"\n--- Document Chunk {i+1} ---")
-        print(doc.page_content[:500])
-
-
-    # Display table summaries
-    print(f"\nTables Extracted: {len(tables)}")
-    for i, table in enumerate(tables[:1]):
-        print(f"\n--- Table {i+1} ---")
-        print(str(table)[:300])
-
-    # Display image previews
-    print(f"\nBase64 Images Extracted: {len(images_b64)}")
-    if images_b64:
-        print("Displaying first extracted image...")
-        display_base64_image(images_b64[0])
 
     # Summarization
     summarizer = Summarizer()
+    print("\nSummarizing all content...")
+    summaries = summarizer.summarize_all(texts, tables, images_b64)
+    text_summaries = summaries["texts"]
+    table_summaries = summaries["tables"]
+    image_summaries = summaries["images"]
 
-    print("\nSummarizing text...")
-    text_summaries = summarizer.summarize_text(texts)
+    # Setup retriever
+    store = VectorStoreManager()
+    retriever = store.retriever
 
-    # print("\nSummarizing tables...")
-    # tables_html = [table.metadata.text_as_html for table in tables]
+    # Generate IDs
+    text_ids = [str(uuid.uuid4()) for _ in texts]
+    table_ids = [str(uuid.uuid4()) for _ in tables]
+    image_ids = [str(uuid.uuid4()) for _ in images_b64]
 
+    # Prepare documents
+    summary_texts = [
+        Document(page_content=summary, metadata={"doc_id": text_ids[i], "type": "text"})
+        for i, summary in enumerate(text_summaries)
+    ]
+    summary_tables = [
+        Document(page_content=summary, metadata={"doc_id": table_ids[i], "type": "table"})
+        for i, summary in enumerate(table_summaries)
+    ]
+    summary_images = [
+        Document(page_content=summary, metadata={"doc_id": image_ids[i], "type": "image"})
+        for i, summary in enumerate(image_summaries)
+    ]
 
-    print("\nSummarizing images...")
-    image_summaries = summarizer.summarize_images(images_b64)
+    # Store in vector DB and doc store
+    retriever.vectorstore.add_documents(summary_texts + summary_tables + summary_images)
+    retriever.docstore.mset(list(zip(text_ids, texts)))
+    retriever.docstore.mset(list(zip(table_ids, tables)))
+    retriever.docstore.mset(list(zip(image_ids, images_b64)))
 
-    # Display summaries (optional)
-    for i, summary in enumerate(text_summaries):
-        print(f"\nText Summary {i + 1}:\n{summary}\n{'-'*50}")
+    print(f"\nStored {len(summary_texts)} text, {len(summary_tables)} table, and {len(summary_images)} image summaries.")
 
-    # for i, summary in enumerate(table_summaries[:1]):
-    #     print(f"\nTable Summary {i+1}:\n{summary}")
-
-    for i, summary in enumerate(image_summaries):
-        print(f"\nImage Summary {i+1}:\n{summary}\n{'-'*50}")
 
 if __name__ == "__main__":
     main()

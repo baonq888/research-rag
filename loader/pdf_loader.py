@@ -1,4 +1,5 @@
 
+import uuid
 from unstructured.partition.pdf import partition_pdf
 from langchain.schema import Document
 from typing import List
@@ -65,18 +66,40 @@ class UnstructuredPDFLoader:
                         if IMAGE_BLOCK_TYPES in str(type(el)):
                             images_b64.append(el.metadata.image_base64)
         return images_b64
-
-    def process_pdf_content(self) -> List[Document]:
+    
+    def process_pdf_content(self):
         chunks = self.load_chunks()
-        tables, texts = self.separate_tables_and_texts_from_chunks(chunks)
-        images = self.get_images_from_chunks(texts)
+        tables_raw, texts_raw = self.separate_tables_and_texts_from_chunks(chunks)
+        images_b64 = self.get_images_from_chunks(texts_raw)
 
-        documents = [
+        # Convert to LangChain Document with type & ID metadata
+        text_docs = [
             Document(
                 page_content=str(el),
-                metadata=el.metadata.to_dict() if hasattr(el, "metadata") else {}
+                metadata={
+                    "doc_id": str(uuid.uuid4()),
+                    "type": "text",
+                    **(el.metadata.to_dict() if hasattr(el, "metadata") else {})
+                }
             )
-            for el in texts
+            for el in texts_raw
         ]
 
-        return documents, tables, images
+        table_docs = [
+            Document(
+                page_content=el.metadata.text_as_html,  # already HTML string
+                metadata={
+                    "doc_id": str(uuid.uuid4()),
+                    "type": "table",
+                    **(el.metadata.to_dict() if hasattr(el, "metadata") else {})
+                }
+            )
+            for el in tables_raw
+        ]
+
+        return text_docs, table_docs, images_b64
+
+    
+
+
+    
