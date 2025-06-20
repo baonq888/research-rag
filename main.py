@@ -37,10 +37,7 @@ def main():
     # Summarization
     summarizer = Summarizer()
     print("\nSummarizing all content...")
-    summaries = summarizer.summarize_all(texts, tables, images_b64)
-    text_summaries = summaries["texts"]
-    table_summaries = summaries["tables"]
-    image_summaries = summaries["images"]
+    image_summaries = summarizer.summarize_images(images_b64)
 
     # Setup retriever
     store = VectorStoreManager()
@@ -52,21 +49,25 @@ def main():
     image_ids = [str(uuid.uuid4()) for _ in images_b64]
 
     # Prepare documents
-    summary_texts = [
-        Document(page_content=summary, metadata={"doc_id": text_ids[i], "type": "text"})
-        for i, summary in enumerate(text_summaries)
-    ]
-    summary_tables = [
-        Document(page_content=summary, metadata={"doc_id": table_ids[i], "type": "table"})
-        for i, summary in enumerate(table_summaries)
-    ]
+    
     summary_images = [
         Document(page_content=summary, metadata={"doc_id": image_ids[i], "type": "image"})
         for i, summary in enumerate(image_summaries)
     ]
 
+    full_texts = [
+    Document(page_content=doc.page_content, metadata={"doc_id": text_ids[i], "type": "full", "source": "text"})
+    for i, doc in enumerate(texts)
+    ]
+    full_tables = [
+        Document(page_content=str(tbl), metadata={"doc_id": table_ids[i], "type": "full", "source": "table"})
+        for i, tbl in enumerate(tables)
+    ]
+
     # Store in vector DB and doc store
-    retriever.vectorstore.add_documents(summary_texts + summary_tables + summary_images)
+    retriever.vectorstore.add_documents(
+        summary_images + full_texts + full_tables
+    )
 
     def serialize_document(doc: Document):
         return json.dumps({
@@ -95,7 +96,7 @@ def main():
         (doc_id, json.dumps({"image_b64": b64})) for doc_id, b64 in zip(image_ids, images_b64)
     ])
 
-    print(f"\nStored {len(summary_texts)} text, {len(summary_tables)} table, and {len(summary_images)} image summaries.")
+    print(f"\nStored {len(full_texts)} text, {len(full_tables)} table, and {len(summary_images)} image summaries.")
 
 
 if __name__ == "__main__":

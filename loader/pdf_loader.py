@@ -69,30 +69,37 @@ class UnstructuredPDFLoader:
     
     def process_pdf_content(self):
         chunks = self.load_chunks()
-        tables_raw, texts_raw = self.separate_tables_and_texts_from_chunks(chunks)
+       
+    
+        def get_metadata(el, content_type):
+            md = el.metadata.to_dict() if hasattr(el, "metadata") else {}
+            return {
+                "doc_id": str(uuid.uuid4()),
+                "type": content_type,
+                "section": md.get("section", "").strip().lower(),
+                "heading": md.get("heading", "").strip().lower(),
+                "page_number": md.get("page_number", -1),
+                "emphasized_text": md.get("emphasized_text", []),
+                "filename": md.get("filename", ""),
+                "element_id": md.get("id", ""),
+                "parent_id": md.get("parent_id", ""),
+            }
+
         images_b64 = self.get_images_from_chunks(texts_raw)
 
-        # Convert to LangChain Document with type & ID metadata
+        tables_raw, texts_raw = self.separate_tables_and_texts_from_chunks(chunks)
         text_docs = [
             Document(
                 page_content=str(el),
-                metadata={
-                    "doc_id": str(uuid.uuid4()),
-                    "type": "text",
-                    **(el.metadata.to_dict() if hasattr(el, "metadata") else {})
-                }
+                metadata=get_metadata(el, "text")
             )
             for el in texts_raw
         ]
 
         table_docs = [
             Document(
-                page_content=el.metadata.text_as_html,  # already HTML string
-                metadata={
-                    "doc_id": str(uuid.uuid4()),
-                    "type": "table",
-                    **(el.metadata.to_dict() if hasattr(el, "metadata") else {})
-                }
+                page_content=el.metadata.text_as_html,
+                metadata=get_metadata(el, "table")
             )
             for el in tables_raw
         ]
