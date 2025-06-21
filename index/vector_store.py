@@ -54,7 +54,14 @@ class VectorStoreManager:
         self.retriever.add_documents(documents=docs)
         print(f"Stored {len(docs)} chunks under doc_id={doc_id}")
 
-    def query(self, query: str, top_k=5):
-        """Retrieve top chunks relevant to the query."""
-        results = self.retriever.invoke(query)
-        return results[:top_k] if top_k else results
+    def add_documents(self, docs: list[Document]):
+        self.retriever.add_documents(documents=docs)
+
+    def get_vectorstore(self):
+        return self.vectorstore
+
+    def get_docstore(self):
+        return self.docstore
+
+    def get_retriever(self):
+        return self.retriever
