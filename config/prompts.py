@@ -13,3 +13,17 @@ Content:
 IMAGE_SUMMARY_PROMPT = """
 Describe the image in detail.
 """
+
+QA_PROMPT = """
+You are a helpful assistant.
+
+Answer the question based only on the context provided.
+
+Context:
+{context}
+
+Question: {question}
+
+Answer:
+"""
+

@@ -1,14 +1,18 @@
 import json
+import base64
+import os
+import uuid
+from dotenv import load_dotenv
+from IPython.display import Image, display
+
+from generator.generation import Generation
 from loader.pdf_loader import UnstructuredPDFLoader
 from loader.summarizer import Summarizer
 from index.vector_store import VectorStoreManager
+from retrieval.retriever import Retriever
 from langchain.schema import Document
-import base64, os, uuid
-from IPython.display import Image, display
-from dotenv import load_dotenv
 
 load_dotenv()
-
 
 def display_base64_image(base64_code):
     image_data = base64.b64decode(base64_code)
@@ -49,54 +53,52 @@ def main():
     image_ids = [str(uuid.uuid4()) for _ in images_b64]
 
     # Prepare documents
-    
     summary_images = [
         Document(page_content=summary, metadata={"doc_id": image_ids[i], "type": "image"})
         for i, summary in enumerate(image_summaries)
     ]
 
     full_texts = [
-    Document(page_content=doc.page_content, metadata={"doc_id": text_ids[i], "type": "full", "source": "text"})
-    for i, doc in enumerate(texts)
+        Document(page_content=str(doc), metadata={"doc_id": text_ids[i], "type": "full", "source": "text"})
+        for i, doc in enumerate(texts)
     ]
+
     full_tables = [
         Document(page_content=str(tbl), metadata={"doc_id": table_ids[i], "type": "full", "source": "table"})
         for i, tbl in enumerate(tables)
     ]
 
-    # Store in vector DB and doc store
-    retriever.vectorstore.add_documents(
-        summary_images + full_texts + full_tables
-    )
+    # Add all to vector DB
+    retriever.vectorstore.add_documents(summary_images + full_texts + full_tables)
 
-    def serialize_document(doc: Document):
+    # --- Serialization Utilities ---
+    def serialize_doc(doc: Document):
         return json.dumps({
             "page_content": doc.page_content,
             "metadata": doc.metadata
         })
 
-    def serialize_table(table):
-        return json.dumps({
-            "page_content": table.page_content if hasattr(table, "page_content") else str(table),
-            "metadata": table.metadata.to_dict() if hasattr(table.metadata, "to_dict") else table.metadata
-        })
-
-    # Store original texts as JSON
-    retriever.docstore.mset([
-        (doc_id, serialize_document(doc)) for doc_id, doc in zip(text_ids, texts)
-    ])
-
-    # Store tables as JSON
-    retriever.docstore.mset([
-        (doc_id, serialize_table(tbl)) for doc_id, tbl in zip(table_ids, tables)
-    ])
-
-    # Store base64 images as raw strings (they're already serializable)
-    retriever.docstore.mset([
-        (doc_id, json.dumps({"image_b64": b64})) for doc_id, b64 in zip(image_ids, images_b64)
+    # Store in Redis (docstore)
+    store.docstore.mset([
+        (doc.metadata["doc_id"], serialize_doc(doc)) for doc in (full_texts + full_tables + summary_images)
     ])
 
     print(f"\nStored {len(full_texts)} text, {len(full_tables)} table, and {len(summary_images)} image summaries.")
+
+    # --- Retrieval Test ---
+    print("\nTesting Retrieval:")
+    test_retriever = Retriever(
+        vectorstore=store.get_vectorstore(),
+        docstore=store.get_docstore(),
+        embedding_function=store.embedding_model
+    )
+
+    query = "Who are the authors of the paper?"
+
+    generator = Generation(retriever=test_retriever)
+    print("\nLLM Answer via Generation class:")
+    answer = generator.answer(query)
+    print(answer)
 
 
 if __name__ == "__main__":

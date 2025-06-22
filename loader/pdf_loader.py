@@ -69,7 +69,7 @@ class UnstructuredPDFLoader:
     
     def process_pdf_content(self):
         chunks = self.load_chunks()
-       
+        tables_raw, texts_raw = self.separate_tables_and_texts_from_chunks(chunks)
     
         def get_metadata(el, content_type):
             md = el.metadata.to_dict() if hasattr(el, "metadata") else {}
@@ -87,7 +87,7 @@ class UnstructuredPDFLoader:
 
         images_b64 = self.get_images_from_chunks(texts_raw)
 
-        tables_raw, texts_raw = self.separate_tables_and_texts_from_chunks(chunks)
+        
         text_docs = [
             Document(
                 page_content=str(el),

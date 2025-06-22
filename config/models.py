@@ -3,7 +3,7 @@ LLM_MODEL = "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free"
      
 IMAGE_MODEL = "meta-llama/Llama-Vision-Free"
 
-EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+EMBEDDING_MODEL = "intfloat/e5-large-v2"
 
 # Summary settings
 SUMMARY_TEMPERATURE = 0.5

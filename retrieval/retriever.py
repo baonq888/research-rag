@@ -11,18 +11,18 @@ class Retriever:
         self.embedding_function = embedding_function
         self.id_key = id_key
 
-    def retrieve(self, query: str, top_k=5, metadata_filter: dict = None):
+    def retrieve(self, query: str, top_k=3, metadata_filter: dict = None):
         """
         Perform vector retrieval with optional metadata filtering.
         """
         results = self.vectorstore.similarity_search_with_score(query, k=top_k, filter=metadata_filter)
         
         # Check confidence scores and fallback if needed
-        if results and results[0][1] > 0.8:
-            print("Low confidence, fallback logic can be triggered here")
+        # if results and results[0][1] < 0.5:
+        #     print("Low confidence, fallback logic can be triggered here")
             # Placeholder: call web search 
 
-        # Get full doc from Redis using doc_id
+        # Get full doc from retreived results
         enriched_docs = []
         for doc, score in results:
             doc_id = doc.metadata.get(self.id_key)
