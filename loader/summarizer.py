@@ -1,14 +1,8 @@
-from dotenv import load_dotenv
-import os
-from together import Together
 from config.models import LLM_MODEL, IMAGE_MODEL
 from config.prompts import (SUMMARY_PROMPT, IMAGE_SUMMARY_PROMPT)
 from helper.response_cleaner import ResponseCleaner
+from config.client import client
 
-load_dotenv()
-api_key = os.getenv("TOGETHER_API_KEY")
-
-client = Together(api_key=api_key)
 
 
 class Summarizer:

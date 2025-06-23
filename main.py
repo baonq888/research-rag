@@ -4,7 +4,7 @@ import os
 import uuid
 from dotenv import load_dotenv
 from IPython.display import Image, display
-
+from retrieval.metadata_filter import MetadataFilterExtractor
 from generator.generation import Generation
 from loader.pdf_loader import UnstructuredPDFLoader
 from loader.summarizer import Summarizer
@@ -40,7 +40,7 @@ def main():
 
     # Summarization
     summarizer = Summarizer()
-    print("\nSummarizing all content...")
+    print("\nSummarizing images...")
     image_summaries = summarizer.summarize_images(images_b64)
 
     # Setup retriever
@@ -48,8 +48,6 @@ def main():
     retriever = store.retriever
 
     # Generate IDs
-    text_ids = [str(uuid.uuid4()) for _ in texts]
-    table_ids = [str(uuid.uuid4()) for _ in tables]
     image_ids = [str(uuid.uuid4()) for _ in images_b64]
 
     # Prepare documents
@@ -58,18 +56,9 @@ def main():
         for i, summary in enumerate(image_summaries)
     ]
 
-    full_texts = [
-        Document(page_content=str(doc), metadata={"doc_id": text_ids[i], "type": "full", "source": "text"})
-        for i, doc in enumerate(texts)
-    ]
-
-    full_tables = [
-        Document(page_content=str(tbl), metadata={"doc_id": table_ids[i], "type": "full", "source": "table"})
-        for i, tbl in enumerate(tables)
-    ]
 
     # Add all to vector DB
-    retriever.vectorstore.add_documents(summary_images + full_texts + full_tables)
+    retriever.vectorstore.add_documents(summary_images + texts + tables)
 
     # --- Serialization Utilities ---
     def serialize_doc(doc: Document):
@@ -80,21 +69,24 @@ def main():
 
     # Store in Redis (docstore)
     store.docstore.mset([
-        (doc.metadata["doc_id"], serialize_doc(doc)) for doc in (full_texts + full_tables + summary_images)
+        (doc.metadata["doc_id"], serialize_doc(doc)) for doc in (texts + tables + summary_images)
     ])
 
-    print(f"\nStored {len(full_texts)} text, {len(full_tables)} table, and {len(summary_images)} image summaries.")
+    print(f"\nStored {len(texts)} text, {len(tables)} table, and {len(summary_images)} image summaries.")
 
-    # --- Retrieval Test ---
-    print("\nTesting Retrieval:")
+    # --- QA Test ---
+    print("\nTesting QA:")
     test_retriever = Retriever(
         vectorstore=store.get_vectorstore(),
         docstore=store.get_docstore(),
         embedding_function=store.embedding_model
     )
 
-    query = "Who are the authors of the paper?"
+    query = "What is attention layer?"
 
+
+
+    # Run QA
     generator = Generation(retriever=test_retriever)
     print("\nLLM Answer via Generation class:")
     answer = generator.answer(query)

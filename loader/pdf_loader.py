@@ -1,8 +1,10 @@
-
 import uuid
-from unstructured.partition.pdf import partition_pdf
-from langchain.schema import Document
 from typing import List
+
+from langchain.schema import Document
+from unstructured.partition.pdf import partition_pdf
+
+from config.models import ZERO_SHOT_MODEL
 from config.unstructured import (
     CHUNKING_STRATEGY,
     MAX_CHARS,
@@ -12,6 +14,27 @@ from config.unstructured import (
     TABLE_BLOCK_TYPE,
     IMAGE_BLOCK_TYPES,
 )
+
+from transformers import pipeline
+
+classifier = pipeline("zero-shot-classification", model=ZERO_SHOT_MODEL)
+SECTION_LABELS = [
+    "introduction",
+    "background",
+    "overview",
+    "methodology",
+    "process",
+    "results",
+    "analysis",
+    "discussion",
+    "conclusion",
+    "summary",
+    "table",
+    "figure",
+    "reference",
+    "appendix",
+    "other"
+]
 
 class UnstructuredPDFLoader:
     def __init__(
@@ -23,13 +46,21 @@ class UnstructuredPDFLoader:
         combine_text_under_n_chars: int = COMBINE_UNDER,
         new_after_n_chars: int = NEW_AFTER,
     ):
-        self.file_path = file_path  # Path to the PDF file to be processed
-        self.image_output_dir = image_output_dir  # Directory to save extracted images (if any)
-        self.chunking_strategy = chunking_strategy  # Strategy for splitting the document into chunks (e.g., 'by_title' or 'basic')
-        self.max_characters = max_characters  # Maximum characters allowed per chunk
-        self.combine_text_under_n_chars = combine_text_under_n_chars  # Combine chunks smaller than this number of characters
-        self.new_after_n_chars = new_after_n_chars  # Force new chunk if content exceeds this number of characters
-    
+        self.file_path = file_path
+        self.image_output_dir = image_output_dir
+        self.chunking_strategy = chunking_strategy
+        self.max_characters = max_characters
+        self.combine_text_under_n_chars = combine_text_under_n_chars
+        self.new_after_n_chars = new_after_n_chars
+
+    def classify_section(self, text: str) -> str:
+        try:
+            result = classifier(text[:512], candidate_labels=SECTION_LABELS)
+            return result["labels"][0]
+        except Exception as e:
+            print("Classification error:", e)
+            return "other"
+
     def load_chunks(self) -> List[Document]:
         chunks = partition_pdf(
             filename=self.file_path,
@@ -43,9 +74,8 @@ class UnstructuredPDFLoader:
             combine_text_under_n_chars=self.combine_text_under_n_chars,
             new_after_n_chars=self.new_after_n_chars,
         )
-
         return chunks
-    
+
     def separate_tables_and_texts_from_chunks(self, chunks):
         tables = []
         texts = []
@@ -66,28 +96,31 @@ class UnstructuredPDFLoader:
                         if IMAGE_BLOCK_TYPES in str(type(el)):
                             images_b64.append(el.metadata.image_base64)
         return images_b64
-    
+
     def process_pdf_content(self):
         chunks = self.load_chunks()
         tables_raw, texts_raw = self.separate_tables_and_texts_from_chunks(chunks)
-    
+
         def get_metadata(el, content_type):
             md = el.metadata.to_dict() if hasattr(el, "metadata") else {}
+            section = md.get("section", "").strip().lower()
+
+            # Auto-classify section if missing
+            if not section and content_type == "text":
+                section = self.classify_section(str(el))
+
             return {
                 "doc_id": str(uuid.uuid4()),
                 "type": content_type,
-                "section": md.get("section", "").strip().lower(),
+                "section": section,
                 "heading": md.get("heading", "").strip().lower(),
                 "page_number": md.get("page_number", -1),
-                "emphasized_text": md.get("emphasized_text", []),
-                "filename": md.get("filename", ""),
                 "element_id": md.get("id", ""),
                 "parent_id": md.get("parent_id", ""),
             }
 
         images_b64 = self.get_images_from_chunks(texts_raw)
 
-        
         text_docs = [
             Document(
                 page_content=str(el),
@@ -105,8 +138,3 @@ class UnstructuredPDFLoader:
         ]
 
         return text_docs, table_docs, images_b64
-
-    
-
-
-    

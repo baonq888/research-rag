@@ -1,21 +1,16 @@
-import json
-import os
+
 from typing import List
 from dotenv import load_dotenv
 from langchain.schema import Document
-from together import Together
+from config.client import client
 from config.models import LLM_MODEL
 from config.prompts import QA_PROMPT
 from helper.response_cleaner import ResponseCleaner
+from retrieval.retriever import Retriever
 
-
-load_dotenv()
-api_key = os.getenv("TOGETHER_API_KEY")
-
-client = Together(api_key=api_key)
 
 class Generation:
-    def __init__(self, retriever):
+    def __init__(self, retriever: Retriever):
         self.retriever = retriever
         self.client = client
         self.model_name = LLM_MODEL
