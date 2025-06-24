@@ -1,23 +1,17 @@
 import json
-import base64
 import os
-import uuid
 from dotenv import load_dotenv
-from IPython.display import Image, display
+
 from retrieval.metadata_filter import MetadataFilterExtractor
 from generator.generation import Generation
 from loader.pdf_loader import UnstructuredPDFLoader
 from loader.summarizer import Summarizer
 from index.vector_store import VectorStoreManager
 from retrieval.retriever import Retriever
+from retrieval.retriever_summary import SummaryRetriever  
 from langchain.schema import Document
 
 load_dotenv()
-
-def display_base64_image(base64_code):
-    image_data = base64.b64decode(base64_code)
-    display(Image(data=image_data))
-
 
 def main():
     pdf_path = "./data/attention.pdf"
@@ -27,7 +21,7 @@ def main():
         print(f"File not found: {pdf_path}")
         return
 
-    # Load content
+    # Load and chunk PDF
     loader = UnstructuredPDFLoader(
         file_path=pdf_path,
         image_output_dir=image_output_dir,
@@ -36,68 +30,79 @@ def main():
         combine_text_under_n_chars=2000,
         new_after_n_chars=6000,
     )
-    texts, tables, images_b64 = loader.process_pdf_content()
+    full_texts, full_tables, images_b64 = loader.process_pdf_content()
 
-    # Summarization
+    # Summarize content
     summarizer = Summarizer()
     print("\nSummarizing all content...")
-    image_summaries = summarizer.summarize_images(images_b64)
+    summary_results = summarizer.summarize_all(full_texts, full_tables, images_b64)
 
-    # Setup retriever
-    store = VectorStoreManager()
-    retriever = store.retriever
+    summarized_texts = summary_results["texts"]
+    summarized_tables = summary_results["tables"]
+    summarized_images = summary_results["images"]
 
-    # Generate IDs
-    image_ids = [str(uuid.uuid4()) for _ in images_b64]
+    # Create separate vector stores for full and summary content
+    full_store = VectorStoreManager(collection_name="full_content")
+    summary_store = VectorStoreManager(collection_name="summary_content")
 
-    # Prepare documents
-    summary_images = [
-        Document(page_content=summary, metadata={"doc_id": image_ids[i], "type": "image"})
-        for i, summary in enumerate(image_summaries)
-    ]
+    full_docs = full_texts + full_tables
+    summary_docs = summarized_texts + summarized_tables + summarized_images
 
+    # Add documents to their respective stores
+    full_store.add_documents(full_docs)
+    summary_store.add_documents(summary_docs)
 
-    # Add all to vector DB
-    retriever.vectorstore.add_documents(summary_images + texts + tables)
-
-    # --- Serialization Utilities ---
+    # Shared Redis docstore for both
     def serialize_doc(doc: Document):
         return json.dumps({
             "page_content": doc.page_content,
             "metadata": doc.metadata
         })
 
-    # Store in Redis (docstore)
-    store.docstore.mset([
-        (doc.metadata["doc_id"], serialize_doc(doc)) for doc in (texts + tables + summary_images)
+    full_store.docstore.mset([
+        (doc.metadata["doc_id"], serialize_doc(doc)) for doc in full_docs
+    ])
+    summary_store.docstore.mset([
+        (doc.metadata["doc_id"], serialize_doc(doc)) for doc in summary_docs
     ])
 
-    print(f"\nStored {len(texts)} text, {len(tables)} table, and {len(summary_images)} image summaries.")
+    print(f"\nStored:")
+    print(f" - Full texts: {len(full_texts)}")
+    print(f" - Full tables: {len(full_tables)}")
+    print(f" - Summarized texts: {len(summarized_texts)}")
+    print(f" - Summarized tables: {len(summarized_tables)}")
+    print(f" - Summarized images: {len(summarized_images)}")
 
-    # --- QA Test ---
+    # --- QA Demo ---
     print("\nTesting QA:")
+
+    # Create SummaryRetriever
+    summary_retriever = SummaryRetriever(
+        vectorstore=summary_store.get_vectorstore(),
+        docstore=summary_store.get_docstore(),
+        embedding_function=summary_store.embedding_model
+    )
+
+    # Main Retriever with fallback + delegation
     test_retriever = Retriever(
-        vectorstore=store.get_vectorstore(),
-        docstore=store.get_docstore(),
-        embedding_function=store.embedding_model
+        vectorstore=full_store.get_vectorstore(),
+        docstore=full_store.get_docstore(),
+        embedding_function=full_store.embedding_model,
+        summary_retriever=summary_retriever
     )
 
     query = "Tell me more about the image of the attention model."
 
-    #  Metadata Filter Extraction 
-    print("\nExtracting metadata filter...")
-
+    # Metadata Filtering
     filter_extractor = MetadataFilterExtractor()
     metadata_filter = filter_extractor.extract(query)
     print("Generated Metadata Filter:", metadata_filter)
 
-
-    # Run QA
+    # Generate answer
     generator = Generation(retriever=test_retriever)
     print("\nLLM Answer via Generation class:")
     answer = generator.answer(query, metadata_filter)
     print(answer)
-
 
 if __name__ == "__main__":
     main()

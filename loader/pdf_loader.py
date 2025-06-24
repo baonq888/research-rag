@@ -69,17 +69,31 @@ class UnstructuredPDFLoader:
                             images_b64.append(el.metadata.image_base64)
         return images_b64
 
+    
+    
     def process_pdf_content(self):
         chunks = self.load_chunks()
         tables_raw, texts_raw = self.separate_tables_and_texts_from_chunks(chunks)
 
         def get_metadata(el, content_type):
             md = el.metadata.to_dict() if hasattr(el, "metadata") else {}
-           
+
+            # Default section
+            section_title = md.get("section", "").strip().lower()
+
+            # Try to extract title from orig_elements if available
+            if hasattr(el.metadata, "orig_elements"):
+                orig_elements = el.metadata.orig_elements or []
+                for orig in orig_elements:
+                    if getattr(orig, "category", None) == "Title":
+                        section_title = orig.text.strip().lower()
+                        break
+
             return {
                 "doc_id": str(uuid.uuid4()),
                 "type": content_type,
                 "heading": md.get("heading", "").strip().lower(),
+                "section": section_title,  # extracted title
                 "page_number": md.get("page_number", -1),
                 "element_id": md.get("id", ""),
                 "parent_id": md.get("parent_id", ""),

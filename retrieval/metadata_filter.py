@@ -6,6 +6,7 @@ from rapidfuzz import fuzz
 
 TYPE_LABELS = ["text", "table", "image"]
 
+
 # Fuzzy rule-based matching
 def rule_based_type(query: str, threshold: int = 85) -> Optional[str]:
     query_lower = query.lower()
@@ -22,6 +23,7 @@ def rule_based_type(query: str, threshold: int = 85) -> Optional[str]:
 
     return None
 
+
 class MetadataFilterExtractor:
     def __init__(self):
         try:
@@ -30,25 +32,34 @@ class MetadataFilterExtractor:
             print(f"[MetadataFilterExtractor] Failed to load zero-shot model: {e}")
             self.classifier = None
 
-    def extract(self, query: str) -> dict:
+    def classify_query_type(self, query: str) -> Optional[str]:
         try:
-            if self.classifier:
-                result = self.classifier(query, candidate_labels=TYPE_LABELS)
-                top_label = result["labels"][0]
-                top_score = result["scores"][0]
+            if not self.classifier:
+                return None
 
-                print(f"[Zero-Shot] Predicted: {top_label} (score: {top_score:.2f})")
+            result = self.classifier(query, candidate_labels=TYPE_LABELS)
+            top_label = result["labels"][0]
+            top_score = result["scores"][0]
 
-                if top_score > 0.4:
-                    return {"type": top_label.lower()}
+            print(f"[Zero-Shot] Predicted: {top_label} (score: {top_score:.2f})")
 
+            if top_score > 0.4:
+                return top_label.lower()
         except Exception as e:
             print(f"[MetadataFilterExtractor] Zero-shot classification failed: {e}")
+        return None
 
-        # Fallback
+    def extract(self, query: str) -> dict:
+        # Try zero-shot classification first
+        label = self.classify_query_type(query)
+        if label:
+            return {"type": label}
+
+        # Fallback to rule-based
         fallback_type = rule_based_type(query)
         if fallback_type:
             print(f"[Fallback] Rule-based matched type: {fallback_type}")
             return {"type": fallback_type}
 
         print("[MetadataFilterExtractor] No type matched.")
+        return {}
