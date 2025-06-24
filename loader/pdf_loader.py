@@ -1,10 +1,9 @@
+import json
 import uuid
 from typing import List
-
+from config.client import client
 from langchain.schema import Document
 from unstructured.partition.pdf import partition_pdf
-
-from config.models import ZERO_SHOT_MODEL
 from config.unstructured import (
     CHUNKING_STRATEGY,
     MAX_CHARS,
@@ -15,26 +14,6 @@ from config.unstructured import (
     IMAGE_BLOCK_TYPES,
 )
 
-from transformers import pipeline
-
-classifier = pipeline("zero-shot-classification", model=ZERO_SHOT_MODEL)
-SECTION_LABELS = [
-    "introduction",
-    "background",
-    "overview",
-    "methodology",
-    "process",
-    "results",
-    "analysis",
-    "discussion",
-    "conclusion",
-    "summary",
-    "table",
-    "figure",
-    "reference",
-    "appendix",
-    "other"
-]
 
 class UnstructuredPDFLoader:
     def __init__(
@@ -53,13 +32,6 @@ class UnstructuredPDFLoader:
         self.combine_text_under_n_chars = combine_text_under_n_chars
         self.new_after_n_chars = new_after_n_chars
 
-    def classify_section(self, text: str) -> str:
-        try:
-            result = classifier(text[:512], candidate_labels=SECTION_LABELS)
-            return result["labels"][0]
-        except Exception as e:
-            print("Classification error:", e)
-            return "other"
 
     def load_chunks(self) -> List[Document]:
         chunks = partition_pdf(
@@ -103,16 +75,10 @@ class UnstructuredPDFLoader:
 
         def get_metadata(el, content_type):
             md = el.metadata.to_dict() if hasattr(el, "metadata") else {}
-            section = md.get("section", "").strip().lower()
-
-            # Auto-classify section if missing
-            if not section and content_type == "text":
-                section = self.classify_section(str(el))
-
+           
             return {
                 "doc_id": str(uuid.uuid4()),
                 "type": content_type,
-                "section": section,
                 "heading": md.get("heading", "").strip().lower(),
                 "page_number": md.get("page_number", -1),
                 "element_id": md.get("id", ""),
@@ -136,5 +102,7 @@ class UnstructuredPDFLoader:
             )
             for el in tables_raw
         ]
+
+
 
         return text_docs, table_docs, images_b64

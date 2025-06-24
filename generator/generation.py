@@ -19,9 +19,9 @@ class Generation:
         context = "\n\n".join([doc.page_content for doc in docs])
         return QA_PROMPT.format(context=context, question=question)
 
-    def answer(self, query: str) -> str:
+    def answer(self, query: str, metadata_filter: dict) -> str:
         # Step 1: Retrieve top-k documents
-        top_k_results = self.retriever.retrieve(query)
+        top_k_results = self.retriever.retrieve(query, metadata_filter)
         if not top_k_results:
             return "No relevant context found."
 

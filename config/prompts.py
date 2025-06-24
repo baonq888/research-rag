@@ -27,15 +27,26 @@ Question: {question}
 Answer:
 """
 
+SECTION_CLASSIFY_PROMPT = (
+    "You are a section classifier. Given the following PDF text chunk, classify it "
+    "into one of the following section labels, choose the closest labels as possible:\n\n"
+    "{labels}\n\n"
+    "Respond with ONLY the section name.\n\n"
+    "Text:\n\"\"\"\n{input}\n\"\"\"\n\n"
+    "Section:"
+)
+
 FILTER_INSTRUCTION_PROMPT = """
-You are a metadata extraction assistant.
-
-Your task is to extract a JSON filter dictionary based on the provided Input Query that can be used to narrow down the search results based on metadata.
-
-Only include fields if they are clearly implied by the query.
+You are part of an information system that processes users queries.
+Given a user query you extract information from it that matches a given list of metadata fields.
+The information to be extracted from the query must match the semantics associated with the given metadata fields.
+The information that you extracted from the query will then be used as filters to narrow down the search space
+when querying an index.
+Just include the value of the extracted metadata without including the name of the metadata field.
+The extracted information in 'Extracted metadata' must be returned as a valid JSON structure.
 
 Supported fields:
-- "section": sections in 
+- "section": sections in
 [   "introduction",
     "background",
     "overview",
@@ -54,7 +65,13 @@ Supported fields:
 - "type": One of "text", "table", or "image"
 - "heading": Specific subsection heading if available (optional)
 
-Eg..: Input Query "What is the introduction?" -> {{"section": "introduction", "type": "text"}}
+Eg..:
+Input Query "What is the introduction?" -> {{"section": "introduction", "type": "text"}}
+Input Query "Tell me about the methodology." -> {{"section": "methodology", "type": "text"}}
+Input Query "Show me the results." -> {{"section": "results"}}
+Input Query "Where can I find the references?" -> {{"section": "reference"}}
+Input Query "Summarize the conclusion." -> {{"section": "conclusion", "type": "text"}}
+
 
 **Input Query**:
 "{query}"

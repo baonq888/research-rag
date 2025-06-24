@@ -40,7 +40,7 @@ def main():
 
     # Summarization
     summarizer = Summarizer()
-    print("\nSummarizing images...")
+    print("\nSummarizing all content...")
     image_summaries = summarizer.summarize_images(images_b64)
 
     # Setup retriever
@@ -82,14 +82,20 @@ def main():
         embedding_function=store.embedding_model
     )
 
-    query = "What is attention layer?"
+    query = "Tell me more about the image of the attention model."
 
+    #  Metadata Filter Extraction 
+    print("\nExtracting metadata filter...")
+
+    filter_extractor = MetadataFilterExtractor()
+    metadata_filter = filter_extractor.extract(query)
+    print("Generated Metadata Filter:", metadata_filter)
 
 
     # Run QA
     generator = Generation(retriever=test_retriever)
     print("\nLLM Answer via Generation class:")
-    answer = generator.answer(query)
+    answer = generator.answer(query, metadata_filter)
     print(answer)
 
 

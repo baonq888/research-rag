@@ -11,14 +11,23 @@ class Retriever:
         self.embedding_function = embedding_function
         self.id_key = id_key
 
+    def _format_filter(self, metadata_filter):
+        if not metadata_filter:
+            return None
+        if len(metadata_filter) == 1:
+            return metadata_filter
+        return {"$and": [{k: v} for k, v in metadata_filter.items()]}
 
-    def retrieve(self, query: str):
+    def retrieve(self, query: str, metadata_filter: dict = None):
         """
-        Perform vector retrieval
+        Perform vector retrieval with optional metadata filtering.
         """
+        formatted_filter = self._format_filter(metadata_filter)
+
         results = self.vectorstore.similarity_search_with_score(
             query, 
             k=TOP_K_RETRIEVAL, 
+            filter=formatted_filter
         )
 
         enriched_docs = []
