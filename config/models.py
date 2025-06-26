@@ -1,5 +1,6 @@
 # Language models
 LLM_MODEL = "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free"   
+LLM_MODEL_2 = "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"
      
 IMAGE_MODEL = "meta-llama/Llama-Vision-Free"
 

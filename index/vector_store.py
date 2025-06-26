@@ -55,7 +55,7 @@ class VectorStoreManager:
         print(f"Stored {len(docs)} chunks under doc_id={doc_id}")
 
     def add_documents(self, docs: list[Document]):
-        self.retriever.add_documents(documents=docs)
+        self.vectorstore.add_documents(documents=docs)
 
     def get_vectorstore(self):
         return self.vectorstore

@@ -81,3 +81,9 @@ Respond ONLY with a valid JSON object using the supported fields.
 Example: {{ "section": "results", "type": "table" }}
 """
 
+LLM_SECTION_EXTRACTION_PROMPT = """Extract all the section titles explicitly or implicitly mentioned in this query.
+Return them as a Python list of lowercase strings. Do not explain.
+
+Query: "{query}"
+Answer:"""
+

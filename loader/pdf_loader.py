@@ -1,4 +1,5 @@
 import json
+import re
 import uuid
 from typing import List
 from config.client import client
@@ -31,6 +32,7 @@ class UnstructuredPDFLoader:
         self.max_characters = max_characters
         self.combine_text_under_n_chars = combine_text_under_n_chars
         self.new_after_n_chars = new_after_n_chars
+        self.section_titles = set()
 
 
     def load_chunks(self) -> List[Document]:
@@ -75,25 +77,34 @@ class UnstructuredPDFLoader:
         chunks = self.load_chunks()
         tables_raw, texts_raw = self.separate_tables_and_texts_from_chunks(chunks)
 
+        def clean_section_title(raw_title: str) -> str:
+            # Remove leading numbers, dots, dashes, and colons (e.g., "1.", "1.1:", "2-")
+            return re.sub(r"^\s*[\d\W_]+", "", raw_title).strip().lower()
+        
         def get_metadata(el, content_type):
             md = el.metadata.to_dict() if hasattr(el, "metadata") else {}
 
-            # Default section
+            # Default section (fallback)
             section_title = md.get("section", "").strip().lower()
 
-            # Try to extract title from orig_elements if available
+            # Extract title from orig_elements 
             if hasattr(el.metadata, "orig_elements"):
                 orig_elements = el.metadata.orig_elements or []
                 for orig in orig_elements:
                     if getattr(orig, "category", None) == "Title":
-                        section_title = orig.text.strip().lower()
-                        break
+                        raw_title = orig.text.strip()
+                        section_title = clean_section_title(raw_title)
+                        break  # only use the first matching title
+
+            # Add to section title list if valid
+            if section_title and len(section_title) > 3:
+                self.section_titles.add(section_title)
 
             return {
                 "doc_id": str(uuid.uuid4()),
                 "type": content_type,
                 "heading": md.get("heading", "").strip().lower(),
-                "section": section_title,  # extracted title
+                "section": section_title,
                 "page_number": md.get("page_number", -1),
                 "element_id": md.get("id", ""),
                 "parent_id": md.get("parent_id", ""),
@@ -120,3 +131,6 @@ class UnstructuredPDFLoader:
 
 
         return text_docs, table_docs, images_b64
+    
+    def get_extracted_section_titles(self):
+        return list(self.section_titles)

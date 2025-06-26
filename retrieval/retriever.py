@@ -4,8 +4,14 @@ from langchain_community.vectorstores import Chroma
 from config.retrieval import TOP_K_RETRIEVAL
 from transformers import pipeline
 from config.models import ZERO_SHOT_MODEL
-from rapidfuzz import fuzz
 from retrieval.retriever_summary import SummaryRetriever 
+from config.constants import (
+    SUMMARY_INTENT_GENERAL,
+    SUMMARY_INTENT_LABELS,
+    SUMMARY_INTENT_FULL,
+    SUMMARY_INTENT_SECTION,
+    SUMMARY_INTENT_DETAIL
+)
 
 QUERY_INTENT_LABELS = ["full summary", "section summary", "detail"]
 
@@ -44,13 +50,11 @@ class Retriever:
 
         print(f"[Zero-shot] Summary intent: {top_label} (score: {top_score:.2f})")
 
-        if top_score > 0.4:
-            if top_label == "full summary":
-                return "full_summary"
-            elif top_label == "section summary":
-                return "section_summary"
+        
+        if top_label == SUMMARY_INTENT_GENERAL:
+            return SUMMARY_INTENT_GENERAL
 
-        return "detail"
+        return SUMMARY_INTENT_DETAIL
 
     def _format_filter(self, metadata_filter):
         """
@@ -71,7 +75,7 @@ class Retriever:
         """
         summary_type = self._classify_query_intent(query)
 
-        if summary_type in ["full_summary", "section_summary"]:
+        if summary_type == SUMMARY_INTENT_GENERAL:
             print(f"[Retriever] Delegating {summary_type} retrieval to SummaryRetriever...")
             return self.summary_retriever.retrieve(query)
 

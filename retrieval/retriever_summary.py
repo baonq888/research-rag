@@ -2,17 +2,20 @@ from langchain.schema.document import Document
 import json
 from langchain_community.vectorstores import Chroma
 from transformers import pipeline
+from config.constants import SUMMARY_INTENT_FULL, SUMMARY_INTENT_LABELS, SUMMARY_INTENT_SECTION
 from config.models import ZERO_SHOT_MODEL
 from rapidfuzz import fuzz
 
+from loader.pdf_loader import UnstructuredPDFLoader
 
 class SummaryRetriever:
-    def __init__(self, vectorstore: Chroma, docstore, embedding_function, id_key="doc_id"):
+    def __init__(self, vectorstore: Chroma, docstore, embedding_function, pdf_loader: UnstructuredPDFLoader, id_key="doc_id"):
         self.vectorstore = vectorstore
         self.docstore = docstore
         self.embedding_function = embedding_function
+        self.pdf_loader = pdf_loader
         self.id_key = id_key
-
+        
         try:
             self.classifier = pipeline("zero-shot-classification", model=ZERO_SHOT_MODEL)
         except Exception as e:
@@ -23,20 +26,18 @@ class SummaryRetriever:
         if not self.classifier:
             return "detail"
 
-        labels = ["full summary", "section summary", "detail"]
+        labels = [SUMMARY_INTENT_FULL, SUMMARY_INTENT_SECTION]
         result = self.classifier(query, candidate_labels=labels)
         top_label = result["labels"][0]
         top_score = result["scores"][0]
 
         print(f"[Zero-shot] Summary intent: {top_label} (score: {top_score:.2f})")
 
-        if top_score > 0.4:
-            if top_label == "full summary":
-                return "full_summary"
-            elif top_label == "section summary":
-                return "section_summary"
+        
+        if top_label == SUMMARY_INTENT_FULL:
+            return SUMMARY_INTENT_FULL
 
-        return "detail"
+        return SUMMARY_INTENT_SECTION
 
     def _load_all_summary_docs(self):
         docs = []
@@ -51,12 +52,34 @@ class SummaryRetriever:
             except Exception as e:
                 print(f"[SummaryRetriever] Failed to parse doc {key}: {e}")
         return docs
+    
+
+    def _extract_section_mentions(self, query: str) -> list[str]:
+        """
+        Match query against known section titles using fuzzy logic.
+        """
+        pdf_known_sections = self.pdf_loader.get_extracted_section_titles()
+
+        query_lower = query.lower()
+        matches = []
+
+        for title in pdf_known_sections:
+            score = fuzz.partial_ratio(query_lower, title.lower())
+            if score > 50:
+                matches.append((title, score))
+
+        matches = sorted(matches, key=lambda x: -x[1])
+        matched_titles = [title for title, _ in matches]
+
+        print(f"[SummaryRetriever] Matched sections from known titles: {matched_titles}")
+        return matched_titles
 
     def _load_section_summary_docs(self, query: str):
         query_lower = query.lower()
         candidates = []
-        best_section = None
-        best_score = 0
+
+        # Dynamically determine how many sections are mentioned
+        top_k = self._extract_section_mentions(query)
 
         for key in self.docstore.keys("*"):
             raw = self.docstore.get(key)
@@ -67,37 +90,40 @@ class SummaryRetriever:
                 meta = parsed.get("metadata", {})
                 if meta.get("type") != "summary":
                     continue
+
                 section_title = (meta.get("section") or meta.get("heading") or "").lower().strip()
                 if not section_title:
                     continue
+
                 score = fuzz.partial_ratio(query_lower, section_title)
                 if score > 50:
                     candidates.append((score, Document(**parsed)))
-                    if score > best_score:
-                        best_section = section_title
-                        best_score = score
+
             except Exception as e:
                 print(f"[SummaryRetriever] Failed to parse doc {key}: {e}")
 
-        if best_section:
-            print(f"[SummaryRetriever] Best matched section: {best_section} (score: {best_score})")
-        else:
-            print("[SummaryRetriever] No matching section found.")
+        sorted_docs = sorted(candidates, key=lambda x: -x[0])[:top_k]
 
-        return [doc for _, doc in sorted(candidates, key=lambda x: -x[0])]
+        if sorted_docs:
+            print(f"[SummaryRetriever] Returning top {len(sorted_docs)} section summaries.")
+        else:
+            print("[SummaryRetriever] No matching section summaries found.")
+
+        return [doc for _, doc in sorted_docs]
 
     def retrieve(self, query: str):
         summary_type = self._classify_summary_intent(query)
 
-        if summary_type == "full_summary":
+        if summary_type == SUMMARY_INTENT_FULL:
             print("[SummaryRetriever] Full summary requested.")
             return self._load_all_summary_docs()
 
-        if summary_type == "section_summary":
+        if summary_type == SUMMARY_INTENT_SECTION:
             print("[SummaryRetriever] Section summary requested.")
             return self._load_section_summary_docs(query)
 
-        print("[SummaryRetriever] Running vector similarity search...")
+        # Fallback to standard similarity-based retrieval
+        print("[SummaryRetriever] Fallback. Running vector similarity search...")
         results = self.vectorstore.similarity_search_with_score(query, k=5)
 
         enriched_docs = []

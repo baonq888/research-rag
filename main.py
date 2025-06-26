@@ -8,7 +8,7 @@ from loader.pdf_loader import UnstructuredPDFLoader
 from loader.summarizer import Summarizer
 from index.vector_store import VectorStoreManager
 from retrieval.retriever import Retriever
-from retrieval.retriever_summary import SummaryRetriever  
+from retrieval.retriever_summary import SummaryRetriever
 from langchain.schema import Document
 
 load_dotenv()
@@ -22,7 +22,7 @@ def main():
         return
 
     # Load and chunk PDF
-    loader = UnstructuredPDFLoader(
+    pdf_loader = UnstructuredPDFLoader(
         file_path=pdf_path,
         image_output_dir=image_output_dir,
         chunking_strategy="by_title",
@@ -30,7 +30,7 @@ def main():
         combine_text_under_n_chars=2000,
         new_after_n_chars=6000,
     )
-    full_texts, full_tables, images_b64 = loader.process_pdf_content()
+    full_texts, full_tables, images_b64 = pdf_loader.process_pdf_content()
 
     # Summarize content
     summarizer = Summarizer()
@@ -52,7 +52,6 @@ def main():
     full_store.add_documents(full_docs)
     summary_store.add_documents(summary_docs)
 
-    # Shared Redis docstore for both
     def serialize_doc(doc: Document):
         return json.dumps({
             "page_content": doc.page_content,
@@ -66,40 +65,33 @@ def main():
         (doc.metadata["doc_id"], serialize_doc(doc)) for doc in summary_docs
     ])
 
-    print(f"\nStored:")
-    print(f" - Full texts: {len(full_texts)}")
-    print(f" - Full tables: {len(full_tables)}")
-    print(f" - Summarized texts: {len(summarized_texts)}")
-    print(f" - Summarized tables: {len(summarized_tables)}")
-    print(f" - Summarized images: {len(summarized_images)}")
-
     # --- QA Demo ---
     print("\nTesting QA:")
 
-    # Create SummaryRetriever
+    # Create SummaryRetriever with access to the PDF loader
     summary_retriever = SummaryRetriever(
         vectorstore=summary_store.get_vectorstore(),
         docstore=summary_store.get_docstore(),
-        embedding_function=summary_store.embedding_model
+        embedding_function=summary_store.embedding_model,
+        pdf_loader=pdf_loader  
     )
 
-    # Main Retriever with fallback + delegation
-    test_retriever = Retriever(
+    # Full content retriever with summary fallback
+    detail_retriever = Retriever(
         vectorstore=full_store.get_vectorstore(),
         docstore=full_store.get_docstore(),
         embedding_function=full_store.embedding_model,
         summary_retriever=summary_retriever
     )
 
-    query = "Tell me more about the image of the attention model."
+    query = "What is the summary of the paper?"
 
-    # Metadata Filtering
     filter_extractor = MetadataFilterExtractor()
     metadata_filter = filter_extractor.extract(query)
     print("Generated Metadata Filter:", metadata_filter)
 
-    # Generate answer
-    generator = Generation(retriever=test_retriever)
+    # Generate the answer
+    generator = Generation(retriever=detail_retriever)
     print("\nLLM Answer via Generation class:")
     answer = generator.answer(query, metadata_filter)
     print(answer)
