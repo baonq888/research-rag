@@ -3,15 +3,13 @@ import json
 from langchain_community.vectorstores import Chroma
 from config.retrieval import TOP_K_RETRIEVAL
 from transformers import pipeline
-from config.models import ZERO_SHOT_MODEL
+from config.models import RERANKER_MODEL, ZERO_SHOT_MODEL
 from retrieval.retriever_summary import SummaryRetriever 
 from config.constants import (
     SUMMARY_INTENT_GENERAL,
-    SUMMARY_INTENT_LABELS,
-    SUMMARY_INTENT_FULL,
-    SUMMARY_INTENT_SECTION,
     SUMMARY_INTENT_DETAIL
 )
+from sentence_transformers import CrossEncoder
 
 QUERY_INTENT_LABELS = ["full summary", "section summary", "detail"]
 
@@ -37,6 +35,13 @@ class Retriever:
             print(f"[Retriever] Failed to load zero-shot model: {e}")
             self.classifier = None
 
+        # Load cross-encoder reranker model
+        try:
+            self.reranker = CrossEncoder(RERANKER_MODEL)
+        except Exception as e:
+            print(f"[Retriever] Failed to load reranker model: {e}")
+            self.reranker = None
+
     def _classify_query_intent(self, query: str) -> str:
         """
         Determine if the user wants a full summary, a section summary, or detailed info.
@@ -50,7 +55,6 @@ class Retriever:
 
         print(f"[Zero-shot] Summary intent: {top_label} (score: {top_score:.2f})")
 
-        
         if top_label == SUMMARY_INTENT_GENERAL:
             return SUMMARY_INTENT_GENERAL
 
@@ -66,12 +70,24 @@ class Retriever:
             return metadata_filter
         return {"$and": [{k: v} for k, v in metadata_filter.items()]}
 
+    def _rerank_documents(self, query: str, docs: list[Document]) -> list[Document]:
+        if not self.reranker:
+            print("[Retriever] Failed to load reranking model.")
+            return docs
+
+        print("[Retriever] Reranking results with cross-encoder...")
+        pairs = [(query, doc.page_content) for doc in docs]
+        scores = self.reranker.predict(pairs)
+
+        reranked = sorted(zip(docs, scores), key=lambda x: -x[1])
+        return [doc for doc, _ in reranked]
+
     def retrieve(self, query: str, metadata_filter: dict = None):
         """
         Main entry point for document retrieval:
         - If full summary is requested → delegate to SummaryRetriever
         - If section summary is requested → delegate to SummaryRetriever
-        - Else → do top-k similarity search with optional metadata filter
+        - Else → do top-k similarity search with optional metadata filter and rerank
         """
         summary_type = self._classify_query_intent(query)
 
@@ -101,4 +117,4 @@ class Retriever:
                     print(f"[Retriever] Failed to parse doc_id={doc_id}: {e}")
                     enriched_docs.append(doc)
 
-        return enriched_docs
+        return self._rerank_documents(query, enriched_docs)

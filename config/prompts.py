@@ -24,7 +24,7 @@ Context:
 
 Question: {question}
 
-Answer:
+Output:
 """
 
 SECTION_CLASSIFY_PROMPT = (

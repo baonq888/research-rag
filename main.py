@@ -84,7 +84,7 @@ def main():
         summary_retriever=summary_retriever
     )
 
-    query = "What is the summary of the paper?"
+    query = "Who is the author of this paper?"
 
     filter_extractor = MetadataFilterExtractor()
     metadata_filter = filter_extractor.extract(query)
