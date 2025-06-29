@@ -4,6 +4,7 @@ from langchain_community.vectorstores import Chroma
 from config.retrieval import TOP_K_RETRIEVAL
 from transformers import pipeline
 from config.models import RERANKER_MODEL, ZERO_SHOT_MODEL
+from retrieval.reranker import Reranker
 from retrieval.retriever_summary import SummaryRetriever 
 from config.constants import (
     SUMMARY_INTENT_FULL,
@@ -28,6 +29,7 @@ class Retriever:
         self.docstore = docstore
         self.embedding_function = embedding_function
         self.summary_retriever = summary_retriever 
+        self.reranker = Reranker()
         self.id_key = id_key
 
         # Load zero-shot classification model
@@ -60,7 +62,7 @@ class Retriever:
         if top_label == SUMMARY_INTENT_GENERAL:
             return SUMMARY_INTENT_GENERAL
 
-        return SUMMARY_INTENT_DETAIL
+        return QUERY_INTENT_DETAIL
 
     def _format_filter(self, metadata_filter):
         """
@@ -72,17 +74,6 @@ class Retriever:
             return metadata_filter
         return {"$and": [{k: v} for k, v in metadata_filter.items()]}
 
-    def _rerank_documents(self, query: str, docs: list[Document]) -> list[Document]:
-        if not self.reranker:
-            print("[Retriever] Failed to load reranking model.")
-            return docs
-
-        print("[Retriever] Reranking results with cross-encoder...")
-        pairs = [(query, doc.page_content) for doc in docs]
-        scores = self.reranker.predict(pairs)
-
-        reranked = sorted(zip(docs, scores), key=lambda x: -x[1])
-        return [doc for doc, _ in reranked]
 
     def retrieve(self, query: str, metadata_filter: dict = None):
         """
@@ -121,6 +112,6 @@ class Retriever:
 
        # Re-rank only for detail queries
         if summary_type == QUERY_INTENT_DETAIL:
-            return self._rerank_documents(query, enriched_docs)
+            return self.reranker.rerank(query, enriched_docs)
 
         return enriched_docs
