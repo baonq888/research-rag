@@ -2,7 +2,7 @@ from langchain.schema.document import Document
 import json
 from langchain_community.vectorstores import Chroma
 from transformers import pipeline
-from config.constants import SUMMARY_INTENT_FULL, SUMMARY_INTENT_LABELS, SUMMARY_INTENT_SECTION
+from config.constants import SUMMARY_INTENT_FULL, SUMMARY_INTENT_SECTION
 from config.models import ZERO_SHOT_MODEL
 from rapidfuzz import fuzz
 

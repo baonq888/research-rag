@@ -6,12 +6,14 @@ from transformers import pipeline
 from config.models import RERANKER_MODEL, ZERO_SHOT_MODEL
 from retrieval.retriever_summary import SummaryRetriever 
 from config.constants import (
+    SUMMARY_INTENT_FULL,
     SUMMARY_INTENT_GENERAL,
-    SUMMARY_INTENT_DETAIL
+    QUERY_INTENT_DETAIL,
+    SUMMARY_INTENT_SECTION
 )
 from sentence_transformers import CrossEncoder
 
-QUERY_INTENT_LABELS = ["full summary", "section summary", "detail"]
+QUERY_INTENT_LABELS = [SUMMARY_INTENT_FULL, SUMMARY_INTENT_SECTION, QUERY_INTENT_DETAIL]
 
 class Retriever:
     def __init__(
@@ -117,4 +119,8 @@ class Retriever:
                     print(f"[Retriever] Failed to parse doc_id={doc_id}: {e}")
                     enriched_docs.append(doc)
 
-        return self._rerank_documents(query, enriched_docs)
+       # Re-rank only for detail queries
+        if summary_type == QUERY_INTENT_DETAIL:
+            return self._rerank_documents(query, enriched_docs)
+
+        return enriched_docs

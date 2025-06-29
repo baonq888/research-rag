@@ -1,52 +1,75 @@
-import json, uuid
-from loader.pdf_loader import UnstructuredPDFLoader
-from loader.summarizer import Summarizer
-from index.vector_store import VectorStoreManager
-from retrieval.retriever import Retriever
-from generator.generation import Generation
+import os
+from typing import Dict
+from dotenv import load_dotenv
+
 from retrieval.metadata_filter import MetadataFilterExtractor
-from langchain.schema import Document
+from generator.generation import Generation
+from retrieval.retriever import Retriever
+from retrieval.retriever_summary import SummaryRetriever
 
-def load_and_index_pdf(file_path):
-    loader = UnstructuredPDFLoader(file_path, image_output_dir="./data")
-    texts, tables, images_b64 = loader.process_pdf_content()
+from helper.pdf_utils import (
+    load_pdf,
+    summarize_content,
+    initialize_vector_stores,
+    persist_to_docstore,
+    initialize_retrievers,
+)
 
-    summarizer = Summarizer()
-    image_summaries = summarizer.summarize_images(images_b64)
+load_dotenv()
 
-    image_ids = [str(uuid.uuid4()) for _ in image_summaries]
-    image_docs = [
-        Document(page_content=summary, metadata={"doc_id": image_ids[i], "type": "image"})
-        for i, summary in enumerate(image_summaries)
-    ]
+class QAService:
+    def __init__(self):
+        self.full_store = None
+        self.summary_store = None
+        self.detail_retriever: Retriever = None
+        self.summary_retriever: SummaryRetriever = None
 
-    store = VectorStoreManager()
-    store.retriever.vectorstore.add_documents(image_docs + texts + tables)
+    def load_and_index_pdf(self, file_path: str, image_output_dir: str = "./data") -> Dict[str, int]:
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
 
-    def serialize(doc: Document):
-        return json.dumps({"page_content": doc.page_content, "metadata": doc.metadata})
+        # Load and chunk
+        pdf_loader = load_pdf(file_path, image_output_dir)
+        full_texts, full_tables, images_b64 = pdf_loader.process_pdf_content()
 
-    store.docstore.mset([
-        (doc.metadata["doc_id"], serialize(doc)) for doc in (texts + tables + image_docs)
-    ])
+        # Summarize
+        summary_results = summarize_content(full_texts, full_tables, images_b64)
+        summarized_texts = summary_results["texts"]
+        summarized_tables = summary_results["tables"]
+        summarized_images = summary_results["images"]
 
-    return {"texts": len(texts), "tables": len(tables), "images": len(image_docs)}
+        # Combine documents
+        full_docs = full_texts + full_tables
+        summary_docs = summarized_texts + summarized_tables + summarized_images
 
-def answer_query(query: str):
-    store = VectorStoreManager()
-    retriever = Retriever(
-        vectorstore=store.get_vectorstore(),
-        docstore=store.get_docstore(),
-        embedding_function=store.embedding_model
-    )
-    metadata_filter = MetadataFilterExtractor().extract(query)
+        # Init vector stores and persist
+        self.full_store, self.summary_store = initialize_vector_stores(full_docs, summary_docs)
+        persist_to_docstore(self.full_store, full_docs)
+        persist_to_docstore(self.summary_store, summary_docs)
 
+        # Init retrievers
+        self.detail_retriever, self.summary_retriever = initialize_retrievers(
+            full_store=self.full_store,
+            summary_store=self.summary_store,
+            pdf_loader=pdf_loader
+        )
 
-    generator = Generation(retriever=retriever)
-    answer = generator.answer(query, metadata_filter)
+        return {
+            "texts": len(full_texts),
+            "tables": len(full_tables),
+            "images": len(summarized_images),
+        }
 
-    return {
-        "query": query,
-        "filter": metadata_filter,
-        "answer": answer
-    }
+    def answer_query(self, query: str) -> Dict:
+        if self.detail_retriever is None:
+            raise RuntimeError("PDF not loaded. Call load_and_index_pdf() first.")
+
+        metadata_filter = MetadataFilterExtractor().extract(query)
+        generator = Generation(retriever=self.detail_retriever)
+        answer = generator.answer(query, metadata_filter)
+
+        return {
+            "query": query,
+            "filter": metadata_filter,
+            "answer": answer,
+        }
