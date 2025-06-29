@@ -9,28 +9,23 @@ langchain-core>=0.1.37
 langchain-community>=0.0.33
 langchain-ollama>=0.1.4
 
-# Embeddings and vector search (optional for RAG)
+# Embeddings and vector search 
 sentence-transformers>=2.5.1
 fastembed>=0.1.0
 chromadb>=0.4.24
 
+# Redis for caching / persistent docstore
+redis>=5.0.0
+
 # Display and utility libraries
 aiofiles<24.0,>=22.0  # for compatibility with Gradio
 ipython
-ipywidgets
-pillow
 tqdm
 rich
 
 # Base64 and plotting (for visual display)
 matplotlib
-opencv-python-headless
-base64io
 
 # Environment management
 python-dotenv
 requests
-
-# Jupyter support
-notebook
-jupyter
