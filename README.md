@@ -17,7 +17,7 @@
 
 The system supports multimodal content including text, tables, and images. It features both full-document and section-level summaries, powered by LangChain and Transformer-based models.
 
-Built with FastAPI and Redis, ResearchRAG provides persistent document storage and scalable inference.
+Built with FastAPI and Redis, providing persistent document storage and scalable inference.
 
 ## Features
 
