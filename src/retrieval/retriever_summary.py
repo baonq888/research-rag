@@ -2,11 +2,11 @@ from langchain.schema.document import Document
 import json
 from langchain_community.vectorstores import Chroma
 from transformers import pipeline
-from config.constants import SUMMARY_INTENT_FULL, SUMMARY_INTENT_SECTION
-from config.models import ZERO_SHOT_MODEL
+from src.config.constants import SUMMARY_INTENT_FULL, SUMMARY_INTENT_SECTION
+from src.config.models import ZERO_SHOT_MODEL
 from rapidfuzz import fuzz
 
-from loader.pdf_loader import UnstructuredPDFLoader
+from src.loader.pdf_loader import UnstructuredPDFLoader
 
 class SummaryRetriever:
     def __init__(self, vectorstore: Chroma, docstore, embedding_function, pdf_loader: UnstructuredPDFLoader, id_key="doc_id"):

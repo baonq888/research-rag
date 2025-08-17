@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 from transformers import pipeline
-from config.models import ZERO_SHOT_MODEL
+from src.config.models import ZERO_SHOT_MODEL
 from rapidfuzz import fuzz
 
 TYPE_LABELS = ["text", "table", "image"]

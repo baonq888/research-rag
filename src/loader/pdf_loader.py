@@ -1,11 +1,10 @@
-import json
 import re
 import uuid
 from typing import List
-from config.client import client
+from src.config.client import client
 from langchain.schema import Document
 from unstructured.partition.pdf import partition_pdf
-from config.unstructured import (
+from src.config.unstructured import (
     CHUNKING_STRATEGY,
     MAX_CHARS,
     COMBINE_UNDER,

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api.routes.main_route import router as main_router  
+from src.api.routes.main_route import router as main_router  
 
 app = FastAPI(
     title="PDF QA API",
@@ -20,7 +20,7 @@ app.add_middleware(
 # Register routes
 app.include_router(main_router)
 
-# uvicorn main:app --reload --port 8000
+# python3 -m uvicorn src.main:app --reload --port 8000
 
 
 

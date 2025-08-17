@@ -6,11 +6,11 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.retrievers.multi_vector import MultiVectorRetriever
 from redis import Redis
 
-from config.models import EMBEDDING_MODEL
-from config.redis import REDIS_URL
+from src.config.models import EMBEDDING_MODEL
+from src.config.redis import REDIS_URL
 
 class VectorStoreManager:
-    def __init__(self, collection_name="multi_modal_rag", persist_dir=None):
+    def __init__(self, collection_name="multi_modal_rag", persist_dir="chroma_db"):
         self.embedding_model = HuggingFaceEmbeddings(
             model_name=EMBEDDING_MODEL
         )

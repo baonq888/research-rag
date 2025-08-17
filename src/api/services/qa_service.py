@@ -2,12 +2,12 @@ import os
 from typing import Dict
 from dotenv import load_dotenv
 
-from retrieval.metadata_filter import MetadataFilterExtractor
-from generator.generation import Generation
-from retrieval.retriever import Retriever
-from retrieval.retriever_summary import SummaryRetriever
+from src.retrieval.metadata_filter import MetadataFilterExtractor
+from src.generator.generation import Generation
+from src.retrieval.retriever import Retriever
+from src.retrieval.retriever_summary import SummaryRetriever
 
-from helper.pdf_utils import (
+from src.api.helper.pdf_utils import (
     load_pdf,
     summarize_content,
     initialize_vector_stores,

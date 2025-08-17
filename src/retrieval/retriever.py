@@ -1,12 +1,12 @@
 from langchain.schema.document import Document
 import json
 from langchain_community.vectorstores import Chroma
-from config.retrieval import TOP_K_RETRIEVAL
+from src.config.retrieval import TOP_K_RETRIEVAL
 from transformers import pipeline
-from config.models import RERANKER_MODEL, ZERO_SHOT_MODEL
-from retrieval.reranker import Reranker
-from retrieval.retriever_summary import SummaryRetriever 
-from config.constants import (
+from src.config.models import RERANKER_MODEL, ZERO_SHOT_MODEL
+from src.retrieval.reranker import Reranker
+from src.retrieval.retriever_summary import SummaryRetriever 
+from src.config.constants import (
     SUMMARY_INTENT_FULL,
     SUMMARY_INTENT_GENERAL,
     QUERY_INTENT_DETAIL,

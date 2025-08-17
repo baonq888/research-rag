@@ -3,11 +3,11 @@ import json
 from typing import List, Dict, Tuple
 from langchain.schema import Document
 
-from loader.pdf_loader import UnstructuredPDFLoader
-from loader.summarizer import Summarizer
-from index.vector_store import VectorStoreManager
-from retrieval.retriever import Retriever
-from retrieval.retriever_summary import SummaryRetriever
+from src.loader.pdf_loader import UnstructuredPDFLoader
+from src.loader.summarizer import Summarizer
+from src.index.vector_store import VectorStoreManager
+from src.retrieval.retriever import Retriever
+from src.retrieval.retriever_summary import SummaryRetriever
 
 
 def load_pdf(file_path: str, image_output_dir: str = "./data") -> UnstructuredPDFLoader:

@@ -2,11 +2,11 @@
 from typing import List
 from dotenv import load_dotenv
 from langchain.schema import Document
-from config.client import client
-from config.models import LLM_MODEL
-from config.prompts import QA_PROMPT
-from helper.response_cleaner import ResponseCleaner
-from retrieval.retriever import Retriever
+from src.config.client import client
+from src.config.models import LLM_MODEL
+from src.config.prompts import QA_PROMPT
+from src.helper.response_cleaner import ResponseCleaner
+from src.retrieval.retriever import Retriever
 
 
 class Generation:

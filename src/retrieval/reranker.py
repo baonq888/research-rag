@@ -1,6 +1,6 @@
 from sentence_transformers import CrossEncoder
 from langchain.schema import Document
-from config.models import RERANKER_MODEL
+from src.config.models import RERANKER_MODEL
 
 class Reranker:
     def __init__(self, model_name: str = RERANKER_MODEL):
