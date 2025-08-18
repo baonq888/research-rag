@@ -1,6 +1,6 @@
 from src.config.models import LLM_MODEL, IMAGE_MODEL
 from src.config.prompts import SUMMARY_PROMPT, IMAGE_SUMMARY_PROMPT
-from src.helper.response_cleaner import ResponseCleaner
+from src.core.helper.response_cleaner import ResponseCleaner
 from src.config.client import client
 from langchain.schema import Document
 import uuid

@@ -3,7 +3,7 @@ from typing import Dict
 from dotenv import load_dotenv
 
 from src.retrieval.metadata_filter import MetadataFilterExtractor
-from src.generator.generation import Generation
+from core.generation.generation import Generation
 from src.retrieval.retriever import Retriever
 from src.retrieval.retriever_summary import SummaryRetriever
 

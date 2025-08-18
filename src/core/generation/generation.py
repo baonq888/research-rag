@@ -5,8 +5,8 @@ from langchain.schema import Document
 from src.config.client import client
 from src.config.models import LLM_MODEL
 from src.config.prompts import QA_PROMPT
-from src.helper.response_cleaner import ResponseCleaner
-from src.retrieval.retriever import Retriever
+from src.core.helper.response_cleaner import ResponseCleaner
+from src.core.retrieval.retriever import Retriever
 
 
 class Generation:

@@ -4,7 +4,7 @@ from langchain_community.vectorstores import Chroma
 from src.config.retrieval import TOP_K_RETRIEVAL
 from transformers import pipeline
 from src.config.models import RERANKER_MODEL, ZERO_SHOT_MODEL
-from src.retrieval.reranker import Reranker
+from src.core.retrieval.reranker import Reranker
 from src.config.constants import (
     SUMMARY_INTENT_FULL,
     QUERY_INTENT_DETAIL,
