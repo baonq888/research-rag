@@ -27,9 +27,6 @@ Handles PDF content including text, tables, and embedded images.
 **Summarization (Full & Section-Level)**  
 Uses zero-shot classification to route queries to full or section summaries.
 
-**Query Intent Classification**  
-Determines whether the user is asking for a high-level summary or a specific detail using a zero-shot transformer model.
-
 **Vector-Based Retrieval with Re-ranking**  
 Retrieves top-k documents via dense vector search, followed by CrossEncoder-based reranking.
 
@@ -52,10 +49,6 @@ Stores raw and structured document data in Redis for efficient access.
 - **Embedding Model**  
   - `intfloat/e5-large-v2`  
   Used to generate dense vector representations for retrieval.
-
-- **Zero-Shot Classification Model**  
-  - `MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli`  
-  Used to classify the intent of user queries (e.g., full summary vs. detailed explanation).
 
 - **Re-ranking Model**  
   - `cross-encoder/ms-marco-MiniLM-L-6-v2`  
