@@ -7,7 +7,6 @@ from src.config.models import RERANKER_MODEL, ZERO_SHOT_MODEL
 from src.retrieval.reranker import Reranker
 from src.config.constants import (
     SUMMARY_INTENT_FULL,
-    SUMMARY_INTENT_GENERAL,
     QUERY_INTENT_DETAIL,
     SUMMARY_INTENT_SECTION
 )
@@ -43,23 +42,7 @@ class Retriever:
             print(f"[Retriever] Failed to load reranker model: {e}")
             self.reranker = None
 
-    def _classify_query_intent(self, query: str) -> str:
-        """
-        Determine if the user wants a full summary, a section summary, or detailed info.
-        """
-        if not self.classifier:
-            return "detail"
 
-        result = self.classifier(query, candidate_labels=QUERY_INTENT_LABELS)
-        top_label = result["labels"][0]
-        top_score = result["scores"][0]
-
-        print(f"[Zero-shot] Summary intent: {top_label} (score: {top_score:.2f})")
-
-        if top_label == SUMMARY_INTENT_GENERAL:
-            return SUMMARY_INTENT_GENERAL
-
-        return QUERY_INTENT_DETAIL
 
     def _format_filter(self, metadata_filter):
         """
