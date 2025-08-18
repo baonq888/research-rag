@@ -5,7 +5,6 @@ from src.config.retrieval import TOP_K_RETRIEVAL
 from transformers import pipeline
 from src.config.models import RERANKER_MODEL, ZERO_SHOT_MODEL
 from src.retrieval.reranker import Reranker
-from src.retrieval.retriever_summary import SummaryRetriever 
 from src.config.constants import (
     SUMMARY_INTENT_FULL,
     SUMMARY_INTENT_GENERAL,
@@ -22,13 +21,11 @@ class Retriever:
         vectorstore: Chroma,
         docstore,
         embedding_function,
-        summary_retriever: SummaryRetriever, 
         id_key="doc_id"
     ):
         self.vectorstore = vectorstore
         self.docstore = docstore
         self.embedding_function = embedding_function
-        self.summary_retriever = summary_retriever 
         self.reranker = Reranker()
         self.id_key = id_key
 
@@ -82,11 +79,6 @@ class Retriever:
         - If section summary is requested → delegate to SummaryRetriever
         - Else → do top-k similarity search with optional metadata filter and rerank
         """
-        summary_type = self._classify_query_intent(query)
-
-        if summary_type == SUMMARY_INTENT_GENERAL:
-            print(f"[Retriever] Delegating {summary_type} retrieval to SummaryRetriever...")
-            return self.summary_retriever.retrieve(query)
 
         formatted_filter = self._format_filter(metadata_filter)
         if formatted_filter:
@@ -111,7 +103,5 @@ class Retriever:
                     enriched_docs.append(doc)
 
        # Re-rank only for detail queries
-        if summary_type == QUERY_INTENT_DETAIL:
-            return self.reranker.rerank(query, enriched_docs)
-
-        return enriched_docs
+      
+        return self.reranker.rerank(query, enriched_docs)
